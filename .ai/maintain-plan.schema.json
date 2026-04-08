@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contextkit.local/maintain-plan.schema.json",
+  "title": "ContextKit Maintain Plan",
+  "type": "object",
+  "required": [
+    "version",
+    "rotate",
+    "tasks"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "rotate": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "file",
+          "line_threshold",
+          "keep_last"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "enum": [
+              "CONTEXT.md",
+              "DECISIONS.md",
+              "PATTERNS.md",
+              "LESSONS.md",
+              "TASKS.md"
+            ]
+          },
+          "line_threshold": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "keep_last": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "tasks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "days"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "days": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_files_rotated": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_total_lines_removed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_archive_chars_added": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

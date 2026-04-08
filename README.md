@@ -106,6 +106,11 @@ python contextkit.py status
 python contextkit.py init
 python contextkit.py maintain
 python contextkit.py all
+python contextkit.py plan-check --plan-file .ai/maintain-plan.json
+python contextkit.py llm-plan-input
+python contextkit.py plan-template
+python contextkit.py plan-schema
+python contextkit.py llm-prompt
 ```
 
 If you want one skill for everything, use this single entrypoint:
@@ -121,6 +126,24 @@ Custom limits example:
 
 ```bash
 python contextkit.py all --line-threshold 120 --keep-last 80 --task-days 45
+```
+
+Use LLM plan with deterministic execution:
+
+```bash
+python contextkit.py maintain --plan-file .ai/maintain-plan.json
+```
+
+Safe simulation:
+
+```bash
+python contextkit.py maintain --plan-file .ai/maintain-plan.json --dry-run --explain --deterministic
+```
+
+Strict validation only:
+
+```bash
+python contextkit.py plan-check --plan-file .ai/maintain-plan.json --min-confidence 0.6
 ```
 
 ---
@@ -181,6 +204,126 @@ If your platform supports custom skill command, map skill actions:
 /contextkit init     -> python contextkit.py skill init
 /contextkit maintain -> python contextkit.py skill maintain
 /contextkit all      -> python contextkit.py skill all
+/contextkit llm-plan-input -> python contextkit.py skill llm-plan-input
+/contextkit plan-template  -> python contextkit.py skill plan-template
+/contextkit plan-schema    -> python contextkit.py skill plan-schema
+/contextkit plan-check     -> python contextkit.py skill plan-check --plan-file .ai/maintain-plan.json
+/contextkit llm-prompt     -> python contextkit.py skill llm-prompt
+```
+
+---
+
+## Hybrid LLM + Python Archive Flow
+
+This project now supports a hybrid mode:
+- LLM decides what to rotate/archive
+- Python validates and executes plan safely
+
+Step 1: Export project context for LLM:
+
+```bash
+python contextkit.py llm-plan-input > .ai/llm-input.json
+```
+
+Step 2: Write strict JSON schema:
+
+```bash
+python contextkit.py plan-schema
+```
+
+Step 3: Get JSON template:
+
+```bash
+python contextkit.py plan-template > .ai/maintain-plan.template.json
+```
+
+Step 4: Optional, generate a complete planning prompt:
+
+```bash
+python contextkit.py llm-prompt > .ai/llm-plan.prompt.txt
+```
+
+Step 5: Ask your LLM to produce `.ai/maintain-plan.json` from input + template.
+
+Step 6: Validate plan before execution:
+
+```bash
+python contextkit.py plan-check --plan-file .ai/maintain-plan.json --deterministic --min-confidence 0.6
+```
+
+Step 7: Execute safely with Python:
+
+```bash
+python contextkit.py maintain --plan-file .ai/maintain-plan.json --deterministic --explain
+```
+
+Notes:
+- Plan file must be valid JSON and version `1`
+- Only these files are allowed in `rotate`: `CONTEXT.md`, `DECISIONS.md`, `PATTERNS.md`, `LESSONS.md`, `TASKS.md`
+- Each rule can include `confidence` and `reason`
+- Python applies safety caps and can reject risky plans
+- If plan fails validation, tool falls back to deterministic defaults (unless `--no-fallback`)
+- Accepted plans are archived in `.ai/archive/plans/`
+- Metrics are tracked in `.ai/archive/metrics.json`
+
+### Safety Controls
+
+```bash
+python contextkit.py maintain \
+  --plan-file .ai/maintain-plan.json \
+  --max-files-rotated 3 \
+  --max-lines-removed 500 \
+  --max-archive-chars 120000 \
+  --min-confidence 0.6
+```
+
+### Good Plan Example
+
+```json
+{
+  "version": 1,
+  "rotate": [
+    {
+      "file": "CONTEXT.md",
+      "line_threshold": 130,
+      "keep_last": 80,
+      "confidence": 0.92,
+      "reason": "Context grows quickly and recent lines are most relevant."
+    }
+  ],
+  "tasks": {
+    "enabled": true,
+    "days": 40,
+    "confidence": 0.9,
+    "reason": "Old completed tasks are archived after 40 days."
+  },
+  "limits": {
+    "max_files_rotated": 2,
+    "max_total_lines_removed": 250,
+    "max_archive_chars_added": 60000
+  }
+}
+```
+
+### Bad Plan Example (Rejected)
+
+```json
+{
+  "version": 1,
+  "rotate": [
+    {
+      "file": ".env",
+      "line_threshold": -5,
+      "keep_last": -10,
+      "confidence": 1.2,
+      "reason": ""
+    }
+  ],
+  "tasks": {
+    "enabled": "yes",
+    "days": -30
+  }
+}
 ```
 
 ---
