@@ -1,19 +1,23 @@
 ## Current Session
-<!-- Updated: 2026-04-08 17:15 -->
+<!-- Updated: 2026-04-09 00:45 -->
 
 ### Active Task
-[One-line description of current work]
+Implementing LLM summarization for ContextKit memory system
 
 ### Context
-[Why this task, what came before]
+Building hybrid memory system: LLM for intelligent compression, Python for deterministic archiving.
 
 ### Recent Changes
-- [Change 1]
-- [Change 2]
+- Added update commands (add-decision, add-lesson, task-done, add-pattern, update-context)
+- Added summarize command (displays .ai files for AI to compress)
+- Simplified summarize to use existing AI session (no API keys needed)
+- Updated QWEN.md with automatic update workflow
+- Rewrote README.md with complete usage guide
 
 ### Blockers
-- [None / specific issue]
+- None
 
 ### Next Steps
-1. [Step 1]
-2. [Step 2]
+1. Test summarize workflow with real project
+2. Add git post-commit hook for auto-maintain (optional)
+3. Package for pipx distribution

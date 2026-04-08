@@ -1,7 +1,7 @@
 [project]
 name = "contextkit"
-version = "0.2.0"
-description = "Simple memory system for AI coding workflow (.ai/ files)."
+version = "0.3.1"
+description = "LLM-powered project memory system for AI coding agents (.ai/ files)."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

@@ -14,3 +14,8 @@
 
 ### Anti-patterns
 [What to avoid and why]
+
+### Structure
+
+#### Single-file tool
+All functionality in one Python file for simplicity

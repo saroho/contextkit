@@ -1,4 +1,10 @@
 ## Lessons Learned
+### [2026-04-09] LLM summarization loses context
+- **Symptom**: Important decision details lost in summary
+- **Root Cause**: LLM compresses information non-deterministically
+- **Fix**: Use Python-based rotation instead
+- **Prevention**: Keep mechanical archiving, no LLM summarization
+
 
 ### [2026-04-08] Brief Issue Description
 - **Symptom**: [What went wrong]
