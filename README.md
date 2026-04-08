@@ -58,20 +58,10 @@ contextkit status
 Add to your project's `QWEN.md`:
 
 ```
-When you make meaningful code changes, run the `contextkit` skill to update `.ai/` files.
+When you make meaningful code changes, run `contextkit maintain` to keep .ai files updated.
 ```
 
-Install the project Skill:
-
-```bash
-contextkit skill-install --tool qwen --scope project
-```
-
-Restart Qwen Code, then invoke:
-
-```
-/skills contextkit
-```
+I'll automatically read `.ai/CONTEXT.md` at session start to understand current work.
 
 ## Remove
 
