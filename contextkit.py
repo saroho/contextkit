@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 from dataclasses import dataclass
 from datetime import datetime
+import io
 import json
 from pathlib import Path
 import re
@@ -138,6 +140,70 @@ def read_text(path: Path) -> str:
 def write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
+
+
+def _collapse_blank_lines(lines: list[str], max_run: int = 1) -> list[str]:
+    out: list[str] = []
+    run = 0
+    for line in lines:
+        if line.strip() == "":
+            run += 1
+            if run > max_run:
+                continue
+            out.append("")
+        else:
+            run = 0
+            out.append(line.rstrip())
+    return out
+
+
+def _prune_empty_h3_sections(markdown: str) -> str:
+    """
+    Remove empty `###` sections like:
+      ### Title
+      <blank>
+      ### Next
+    This keeps the file smaller and more LLM-friendly while preserving filled sections.
+    """
+    lines = markdown.splitlines()
+    out: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if line.startswith("### "):
+            # capture until next heading of same or higher level
+            j = i + 1
+            while j < len(lines) and not lines[j].startswith("### "):
+                # stop also at "## " to avoid removing across major sections
+                if lines[j].startswith("## "):
+                    break
+                j += 1
+            block = lines[i:j]
+            body = [x for x in block[1:] if x.strip() and not x.strip().startswith("<!--")]
+            if not body:
+                i = j
+                continue
+            out.extend(block)
+            i = j
+            continue
+        out.append(line)
+        i += 1
+    return "\n".join(out)
+
+
+def compact_markdown(text: str, file_name: str) -> str:
+    # Conservative compaction:
+    # - strip trailing whitespace
+    # - collapse blank-line runs
+    # - remove empty placeholder sections in high-churn files
+    # - keep a single trailing newline
+    raw_lines = [ln.rstrip() for ln in text.splitlines()]
+    raw_lines = _collapse_blank_lines(raw_lines, max_run=1)
+    compacted = "\n".join(raw_lines).strip()
+    if file_name in {"CONTEXT.md", "PATTERNS.md", "LESSONS.md"}:
+        compacted = _prune_empty_h3_sections(compacted).strip()
+        compacted = "\n".join(_collapse_blank_lines(compacted.splitlines(), max_run=1)).strip()
+    return compacted + ("\n" if compacted else "")
 
 
 def ensure_structure(root: Path, summary: Summary) -> Path:
@@ -816,12 +882,14 @@ def execute_operations(rotate_ops: list[dict], tasks_op: dict | None, summary: S
         return
     for op in rotate_ops:
         write_text(Path(op["archive_path"]), str(op["archive_text"]))
-        write_text(Path(op["file_path"]), str(op["updated_text"]))
+        updated = compact_markdown(str(op["updated_text"]), str(op["file"]))
+        write_text(Path(op["file_path"]), updated)
         summary.archived.append(str(op["archive_path"]))
         summary.updated.append(str(op["file_path"]))
     if tasks_op:
         write_text(Path(tasks_op["archive_path"]), str(tasks_op["combined_archive_text"]))
-        write_text(Path(tasks_op["tasks_path"]), str(tasks_op["updated_text"]))
+        updated = compact_markdown(str(tasks_op["updated_text"]), "TASKS.md")
+        write_text(Path(tasks_op["tasks_path"]), updated)
         summary.archived.append(str(tasks_op["archive_path"]))
         summary.updated.append(str(tasks_op["tasks_path"]))
 
@@ -1233,6 +1301,82 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print a valid JSON template for maintain --plan-file.",
     )
 
+    p_skill_export = sub.add_parser(
+        "skill-export",
+        help="Print a SKILL.md file for an agent skill (Qwen, etc).",
+    )
+    p_skill_export.add_argument(
+        "--tool",
+        choices=["generic", "qwen", "kimi", "claude"],
+        default="generic",
+        help="Target tool name (affects the SKILL.md instructions).",
+    )
+    p_skill_export.add_argument(
+        "--name",
+        default="contextkit",
+        help="Skill name (default: contextkit).",
+    )
+    p_skill_export.add_argument(
+        "--description",
+        default="Keep project memory in .ai/ files. Use when editing code, making decisions, or wrapping up changes.",
+        help="Skill description used for discovery.",
+    )
+
+    p_skill_install = sub.add_parser(
+        "skill-install",
+        help="Install a project or personal agent skill (currently supports Qwen layout).",
+    )
+    p_skill_install.add_argument(
+        "--tool",
+        choices=["qwen"],
+        default="qwen",
+        help="Which tool to install for (default: qwen).",
+    )
+    p_skill_install.add_argument(
+        "--scope",
+        choices=["project", "personal"],
+        default="project",
+        help="Install location: project (.qwen/skills) or personal (~/.qwen/skills).",
+    )
+    p_skill_install.add_argument("--name", default="contextkit", help="Skill directory name (default: contextkit).")
+    p_skill_install.add_argument(
+        "--description",
+        default="Keep project memory in .ai/ files. Use when editing code, making decisions, or wrapping up changes.",
+        help="Skill description used for discovery.",
+    )
+    p_skill_install.add_argument("--force", action="store_true", help="Overwrite existing SKILL.md.")
+
+    p_mcp = sub.add_parser(
+        "mcp-serve",
+        help="Run as an MCP server over stdio (for Claude Code, Gemini/Qwen-compatible clients).",
+    )
+    p_mcp.add_argument(
+        "--name",
+        default="ContextKit",
+        help="Server name shown to MCP clients (default: ContextKit).",
+    )
+
+    p_remove = sub.add_parser(
+        "remove",
+        help="Remove ContextKit artifacts from a project (safe by default).",
+    )
+    p_remove.add_argument(
+        "--what",
+        choices=["ai", "qwen-skill", "all"],
+        default="ai",
+        help="What to remove (default: ai).",
+    )
+    p_remove.add_argument(
+        "--skill-name",
+        default="contextkit",
+        help="Skill directory name under .qwen/skills (default: contextkit).",
+    )
+    p_remove.add_argument(
+        "--yes",
+        action="store_true",
+        help="Actually delete files. Without this flag, prints what would be removed.",
+    )
+
     return parser
 
 
@@ -1252,6 +1396,243 @@ def status(root: Path) -> int:
         print("Missing:")
         for name in missing:
             print(f"  - {name}")
+    return 0
+
+
+def build_skill_md(tool: str, name: str, description: str) -> str:
+    safe_name = (name or "contextkit").strip()
+    safe_desc = (description or "").strip() or "Keep project memory in .ai/ files."
+    # Qwen skills are model-invoked and explicitly invokable via `/skills <name>`.
+    # Keep instructions concrete and CLI-agnostic, with optional `contextkit` command usage.
+    header = f"""---
+name: {safe_name}
+description: {safe_desc}
+tool: {tool}
+---
+"""
+    instructions = f"""
+# {safe_name}
+
+## When to use
+- When you make or change architecture decisions
+- When you introduce a new pattern/convention
+- When you fix a bug worth remembering
+- When you are about to finish a task or hand off work
+
+## Workflow
+1. Read `.ai/CONTEXT.md` first to understand current work.
+2. Before major changes, check `.ai/DECISIONS.md` and `.ai/PATTERNS.md`.
+3. After finishing meaningful work, update:
+   - `.ai/DECISIONS.md` for architectural choices
+   - `.ai/PATTERNS.md` for conventions
+   - `.ai/LESSONS.md` for bug lessons
+   - `.ai/TASKS.md` for task state
+4. If `.ai/` files are missing or too large, run:
+
+```bash
+contextkit all
+```
+
+Or just maintenance:
+
+```bash
+contextkit maintain
+```
+
+## Notes
+- Keep entries short, factual, and easy to scan.
+- Prefer adding small bullets over long prose.
+"""
+    return header + instructions.lstrip()
+
+
+def run_skill_export(tool: str, name: str, description: str) -> int:
+    print(build_skill_md(tool=tool, name=name, description=description))
+    return 0
+
+
+def qwen_skill_dir(root: Path, scope: str, name: str) -> Path:
+    if scope == "personal":
+        # Use "~/.qwen/skills/<name>/" (Qwen docs). On Windows, "~" resolves via Path.home().
+        return Path.home() / ".qwen" / "skills" / name
+    return root / ".qwen" / "skills" / name
+
+
+def run_skill_install(
+    root: Path,
+    tool: str,
+    scope: str,
+    name: str,
+    description: str,
+    force: bool,
+) -> int:
+    if tool != "qwen":
+        print(f"Unsupported tool: {tool}", file=sys.stderr)
+        return 2
+    skill_dir = qwen_skill_dir(root=root, scope=scope, name=name)
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    skill_file = skill_dir / "SKILL.md"
+    if skill_file.exists() and not force:
+        print(f"Skill already exists: {skill_file} (use --force to overwrite)")
+        return 0
+    write_text(skill_file, build_skill_md(tool="qwen", name=name, description=description))
+    print(f"Wrote: {skill_file}")
+    if scope == "project":
+        print("Tip: commit `.qwen/skills/` so teammates get the Skill.")
+    print(f"To invoke explicitly in Qwen Code: /skills {name}")
+    return 0
+
+
+def run_cli_capture(argv: list[str]) -> dict[str, Any]:
+    buf_out = io.StringIO()
+    buf_err = io.StringIO()
+    with contextlib.redirect_stdout(buf_out), contextlib.redirect_stderr(buf_err):
+        try:
+            code = main(argv)
+        except SystemExit as exc:
+            code = int(exc.code) if isinstance(exc.code, int) else 1
+    out = buf_out.getvalue()
+    err = buf_err.getvalue()
+    combined = out + (("\n" + err) if err and out else err)
+    return {"exit_code": int(code), "output": combined.strip()}
+
+
+def run_mcp_serve(root: Path, name: str) -> int:
+    try:
+        from mcp.server.fastmcp import FastMCP  # type: ignore
+    except Exception as exc:  # pragma: no cover
+        print(
+            "MCP support is not installed.\n"
+            "Install with one of:\n"
+            '  - pipx install ".[mcp]"\n'
+            '  - python -m pip install ".[mcp]"',
+            file=sys.stderr,
+        )
+        print(f"Import error: {exc}", file=sys.stderr)
+        return 2
+
+    mcp = FastMCP(name, json_response=True)
+
+    @mcp.tool(name="contextkit_status")
+    def mcp_status() -> dict[str, Any]:
+        """Show .ai status (missing files, line counts)."""
+        return run_cli_capture(["--root", str(root), "status"])
+
+    @mcp.tool(name="contextkit_init")
+    def mcp_init(force: bool = False) -> dict[str, Any]:
+        """Create missing .ai files and archive structure."""
+        args = ["--root", str(root), "init"]
+        if force:
+            args.append("--force")
+        return run_cli_capture(args)
+
+    @mcp.tool(name="contextkit_maintain")
+    def mcp_maintain(
+        line_threshold: int = 100,
+        keep_last: int = 60,
+        task_days: int = 30,
+        dry_run: bool = False,
+        explain: bool = False,
+        deterministic: bool = False,
+        min_confidence: float = 0.0,
+    ) -> dict[str, Any]:
+        """Rotate large .ai files and archive old tasks."""
+        args = [
+            "--root",
+            str(root),
+            "maintain",
+            "--line-threshold",
+            str(line_threshold),
+            "--keep-last",
+            str(keep_last),
+            "--task-days",
+            str(task_days),
+            "--min-confidence",
+            str(min_confidence),
+        ]
+        if dry_run:
+            args.append("--dry-run")
+        if explain:
+            args.append("--explain")
+        if deterministic:
+            args.append("--deterministic")
+        return run_cli_capture(args)
+
+    @mcp.tool(name="contextkit_all")
+    def mcp_all(
+        force: bool = False,
+        line_threshold: int = 100,
+        keep_last: int = 60,
+        task_days: int = 30,
+    ) -> dict[str, Any]:
+        """Run init + maintain."""
+        args = [
+            "--root",
+            str(root),
+            "all",
+            "--line-threshold",
+            str(line_threshold),
+            "--keep-last",
+            str(keep_last),
+            "--task-days",
+            str(task_days),
+        ]
+        if force:
+            args.append("--force")
+        return run_cli_capture(args)
+
+    @mcp.tool(name="contextkit_qwen_skill_install")
+    def mcp_qwen_skill_install(scope: str = "project", force: bool = False) -> dict[str, Any]:
+        """Install the Qwen Skill into .qwen/skills/ (project) or ~/.qwen/skills/ (personal)."""
+        args = ["--root", str(root), "skill-install", "--tool", "qwen", "--scope", scope]
+        if force:
+            args.append("--force")
+        return run_cli_capture(args)
+
+    mcp.run(transport="stdio")
+    return 0
+
+
+def _delete_tree(path: Path) -> int:
+    if not path.exists():
+        return 0
+    count = 0
+    for p in sorted(path.rglob("*"), key=lambda x: len(str(x)), reverse=True):
+        try:
+            if p.is_file() or p.is_symlink():
+                p.unlink()
+                count += 1
+            elif p.is_dir():
+                p.rmdir()
+        except OSError:
+            # Best effort: keep going.
+            continue
+    try:
+        path.rmdir()
+    except OSError:
+        pass
+    return count
+
+
+def run_remove(root: Path, what: str, skill_name: str, yes: bool) -> int:
+    targets: list[Path] = []
+    if what in {"ai", "all"}:
+        targets.append(root / ".ai")
+    if what in {"qwen-skill", "all"}:
+        targets.append(root / ".qwen" / "skills" / skill_name)
+
+    if not yes:
+        print("Dry-run. Use `--yes` to delete.")
+        for t in targets:
+            print(f"Would remove: {t}")
+        return 0
+
+    for t in targets:
+        if not t.exists():
+            print(f"Not found: {t}")
+            continue
+        deleted = _delete_tree(t)
+        print(f"Removed: {t} (files deleted: {deleted})")
     return 0
 
 
@@ -1323,6 +1704,21 @@ def main(argv: list[str] | None = None) -> int:
         return run_llm_plan_input(root)
     if args.command == "plan-template":
         return run_plan_template()
+    if args.command == "skill-export":
+        return run_skill_export(tool=args.tool, name=args.name, description=args.description)
+    if args.command == "skill-install":
+        return run_skill_install(
+            root=root,
+            tool=args.tool,
+            scope=args.scope,
+            name=args.name,
+            description=args.description,
+            force=bool(args.force),
+        )
+    if args.command == "mcp-serve":
+        return run_mcp_serve(root=root, name=str(args.name))
+    if args.command == "remove":
+        return run_remove(root=root, what=str(args.what), skill_name=str(args.skill_name), yes=bool(args.yes))
     if args.command == "skill":
         if args.action == "status":
             return status(root)
@@ -1393,6 +1789,10 @@ def main(argv: list[str] | None = None) -> int:
 
     parser.print_help()
     return 1
+
+
+def cli() -> None:
+    raise SystemExit(main())
 
 
 if __name__ == "__main__":

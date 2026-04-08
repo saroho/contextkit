@@ -1,0 +1,20 @@
+ [project]
+ name = "contextkit"
+ version = "0.1.0"
+ description = "Simple memory system for AI coding workflow (.ai/ files)."
+ readme = "README.md"
+ requires-python = ">=3.10"
+ license = { text = "MIT" }
+ authors = [{ name = "ContextKit contributors" }]
+ keywords = ["ai", "cli", "memory", "cursor", "claude", "qwen"]
+ 
+[project.optional-dependencies]
+# Keep broad compatibility: some environments already depend on older MCP SDK versions.
+mcp = ["mcp>=1.12.4,<1.17.0"]
+
+ [project.scripts]
+ contextkit = "contextkit:cli"
+ 
+ [tool.black]
+ line-length = 100
+ target-version = ["py310"]

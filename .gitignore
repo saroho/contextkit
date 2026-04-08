@@ -3,3 +3,19 @@
 .ai/*.tmp
 .ai/secrets.md
 .ai/local/
+
+#python cache
+__pycache__/
+
+# IDE files
+.vscode/
+.idea/
+.cursor/
+.qwen/
+.lingma/
+
+# Python package build artifacts
+*.egg-info/
+*.egg-info
+dist/
+build/
