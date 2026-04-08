@@ -1,0 +1,5 @@
+# AI Memory System
+.ai/archive/bundles/*.tar.gz
+.ai/*.tmp
+.ai/secrets.md
+.ai/local/
