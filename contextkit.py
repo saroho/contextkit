@@ -230,6 +230,27 @@ def print_summary(summary: Summary) -> None:
         print("No changes.")
 
 
+def run_init(root: Path, force: bool, summary: Summary) -> int:
+    init_files(root, force=force, summary=summary)
+    print_summary(summary)
+    return 0
+
+
+def run_maintain(root: Path, line_threshold: int, keep_last: int, task_days: int, summary: Summary) -> int:
+    rotate_large_files(root, line_threshold, keep_last, summary)
+    archive_old_completed_tasks(root, task_days, summary)
+    print_summary(summary)
+    return 0
+
+
+def run_all(root: Path, force: bool, line_threshold: int, keep_last: int, task_days: int, summary: Summary) -> int:
+    init_files(root, force=force, summary=summary)
+    rotate_large_files(root, line_threshold, keep_last, summary)
+    archive_old_completed_tasks(root, task_days, summary)
+    print_summary(summary)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Manage .ai memory files without platform-specific skills.")
     parser.add_argument(
@@ -254,6 +275,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_all.add_argument("--task-days", type=int, default=30, help="Archive completed tasks older than this.")
 
     sub.add_parser("status", help="Show missing core files and simple line counts.")
+
+    p_skill = sub.add_parser(
+        "skill",
+        help="Single entrypoint for skill wrappers. Use action: status|init|maintain|all.",
+    )
+    p_skill.add_argument("action", choices=["status", "init", "maintain", "all"], help="Action to run.")
+    p_skill.add_argument("--force", action="store_true", help="Overwrite existing core files for init/all.")
+    p_skill.add_argument("--line-threshold", type=int, default=100, help="Rotate file if line count exceeds this.")
+    p_skill.add_argument("--keep-last", type=int, default=60, help="After rotation, keep this many lines.")
+    p_skill.add_argument("--task-days", type=int, default=30, help="Archive completed tasks older than this.")
+
     return parser
 
 
@@ -283,22 +315,49 @@ def main(argv: list[str] | None = None) -> int:
     summary = Summary()
 
     if args.command == "init":
-        init_files(root, force=args.force, summary=summary)
-        print_summary(summary)
-        return 0
+        return run_init(root, force=args.force, summary=summary)
     if args.command == "maintain":
-        rotate_large_files(root, args.line_threshold, args.keep_last, summary)
-        archive_old_completed_tasks(root, args.task_days, summary)
-        print_summary(summary)
-        return 0
+        return run_maintain(
+            root,
+            line_threshold=args.line_threshold,
+            keep_last=args.keep_last,
+            task_days=args.task_days,
+            summary=summary,
+        )
     if args.command == "all":
-        init_files(root, force=args.force, summary=summary)
-        rotate_large_files(root, args.line_threshold, args.keep_last, summary)
-        archive_old_completed_tasks(root, args.task_days, summary)
-        print_summary(summary)
-        return 0
+        return run_all(
+            root,
+            force=args.force,
+            line_threshold=args.line_threshold,
+            keep_last=args.keep_last,
+            task_days=args.task_days,
+            summary=summary,
+        )
     if args.command == "status":
         return status(root)
+    if args.command == "skill":
+        if args.action == "status":
+            return status(root)
+        if args.action == "init":
+            return run_init(root, force=args.force, summary=summary)
+        if args.action == "maintain":
+            return run_maintain(
+                root,
+                line_threshold=args.line_threshold,
+                keep_last=args.keep_last,
+                task_days=args.task_days,
+                summary=summary,
+            )
+        if args.action == "all":
+            return run_all(
+                root,
+                force=args.force,
+                line_threshold=args.line_threshold,
+                keep_last=args.keep_last,
+                task_days=args.task_days,
+                summary=summary,
+            )
+        return 1
 
     parser.print_help()
     return 1

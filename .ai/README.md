@@ -1,160 +1,260 @@
-# AI Memory System
+# ContextKit
 
-A platform-agnostic memory layer for AI-assisted development.  
-Works with Qwen Code, Claude Code, Cursor, OpenAI Codex, and any assistant that can read project files.
+Simple memory system for AI coding workflow.
+It works with Qwen Code, Claude Code, Cursor, OpenAI Codex, and other tools.
 
----
+## Why Use ContextKit
 
-## Goal
+ContextKit is for curated project memory, not raw session logs.
 
-AI sessions reset. Your project context should not.
+- Keep what matters: decisions, patterns, lessons, tasks
+- Find answers fast in clear files like `DECISIONS.md` and `PATTERNS.md`
+- Share with team in Git, not locked to one assistant tool
+- Keep architecture knowledge for months/years
 
-This system keeps:
-- Current task state
-- Architecture decisions
-- Code conventions
-- Lessons from bugs/incidents
-- Lightweight task history
+Mem tools can still help for personal recall (recent files, recent errors), but your `.ai/` files stay the main source of truth for project context.
 
 ---
 
-## Architecture (Simple)
+## What Is This
 
-Think in 2 layers:
+AI assistant forgets after session close.
+This project gives you persistent memory files inside `.ai/`.
 
-1. Core layer (required, no skill needed)
-   - `.ai/CONTEXT.md`
-   - `.ai/DECISIONS.md`
-   - `.ai/PATTERNS.md`
-   - `.ai/LESSONS.md`
-   - `.ai/TASKS.md`
-
-2. Automation layer (optional)
-   - Skill-based maintenance (for rotation/archiving/dedup)
-   - `.ai/INDEX.md` and `.ai/CONFIG.md` if you want stricter operations
-
-If you do nothing else, just keep the 5 core files updated.
+Main files:
+- `CONTEXT.md` for current work
+- `DECISIONS.md` for architecture choices
+- `PATTERNS.md` for coding conventions
+- `LESSONS.md` for bug lessons
+- `TASKS.md` for active and done tasks
 
 ---
 
-## Quick Install
+## Full Setup Guide
 
-### One-Tool Mode (Recommended)
+### Step 1: Get This Repository
 
-No skill required. Run from project root:
+You can clone:
 
 ```bash
-python ai_memory_tool.py all
+git clone https://github.com/yourusername/ai-memory-system.git
+cd ai-memory-system
 ```
 
-What it does:
-- Creates missing `.ai/` core files
-- Preserves existing `.ai/` files (no overwrite by default)
-- Creates missing archive subfolders
-- Rotates oversized memory files
-- Archives completed tasks older than 30 days
+Or you can download ZIP and extract.
 
-Useful commands:
+---
+
+### Step 2: Put Into Your Project
+
+Go to your real project root, then copy these files:
+- `contextkit.py`
+- `templates/`
+
+Also copy `.gitignore` rules from this repo if needed.
+
+Example:
 
 ```bash
-python ai_memory_tool.py status
-python ai_memory_tool.py init
-python ai_memory_tool.py maintain
-python ai_memory_tool.py all --line-threshold 120 --keep-last 80 --task-days 45
+# from this repository folder
+cp contextkit.py /path/to/your-project/
+cp -r templates /path/to/your-project/
 ```
 
-### Option A: New Project (No Existing `.ai`)
-
-1. Copy the `templates/*.md` files into a new `.ai/` folder.
-2. Rename files as needed to:
-   - `README.md`
-   - `CONTEXT.md`
-   - `DECISIONS.md`
-   - `PATTERNS.md`
-   - `LESSONS.md`
-   - `TASKS.md`
-3. Create archive folders:
-   - `.ai/archive/context`
-   - `.ai/archive/decisions`
-   - `.ai/archive/patterns`
-   - `.ai/archive/lessons`
-   - `.ai/archive/tasks`
-
-### Option B: Existing `.ai` Folder (Recommended Merge-Safe Path)
-
-Use this if your team already has `.ai/` but no skill:
-
-1. Backup current `.ai/` (copy it somewhere safe).
-2. Keep your existing files as source of truth.
-3. Add only missing files from this system:
-   - `CONTEXT.md`, `DECISIONS.md`, `PATTERNS.md`, `LESSONS.md`, `TASKS.md`
-4. For files that already exist, merge section-by-section instead of overwriting.
-5. Add missing archive subfolders under `.ai/archive/`.
-6. Commit after merge so your team has a clean baseline.
-
-This path avoids breaking existing workflows and does not require any skill tooling.
+If you use Windows and `cp` not available, do same with File Explorer.
 
 ---
 
-## Daily Workflow
+### Step 3: Run One Command
 
-| Event | Update |
-| :--- | :--- |
-| Start work | `CONTEXT.md` |
-| Make architecture choice | `DECISIONS.md` |
-| Define coding convention | `PATTERNS.md` |
-| Fix incident/bug | `LESSONS.md` |
-| Finish task | `TASKS.md` |
+Inside your project root:
 
-Keep entries short. High signal wins.
+```bash
+python contextkit.py all
+```
+
+This command will:
+- Create missing `.ai/` files
+- Keep existing `.ai/` files (no overwrite by default)
+- Create `.ai/archive/*` folders
+- Rotate too large files
+- Archive old completed tasks
+
+No skill is required.
 
 ---
 
-## Manual Maintenance (No Skill)
+## If You Already Have `.ai` Folder
 
-Run weekly or bi-weekly:
+This is safe path:
 
-1. Move old entries from working files into matching archive files.
-2. Keep active files small (target under 100 lines where possible).
-3. Remove duplicate lessons and stale completed tasks.
-4. Commit `.ai/` changes with normal project commits.
+1. Backup your current `.ai/` folder.
+2. Run:
+   ```bash
+   python contextkit.py init
+   ```
+3. Tool will only create missing files, not replace existing content.
+4. Open your files and merge sections if you want better structure.
+5. Commit changes.
 
-Suggested commit message:
+---
+
+## Tool Commands
+
+```bash
+python contextkit.py status
+python contextkit.py init
+python contextkit.py maintain
+python contextkit.py all
+```
+
+If you want one skill for everything, use this single entrypoint:
+
+```bash
+python contextkit.py skill status
+python contextkit.py skill init
+python contextkit.py skill maintain
+python contextkit.py skill all
+```
+
+Custom limits example:
+
+```bash
+python contextkit.py all --line-threshold 120 --keep-last 80 --task-days 45
+```
+
+---
+
+## Daily Usage
+
+At start of work:
+- Update `CONTEXT.md`
+
+When architecture decision done:
+- Update `DECISIONS.md`
+
+When you set naming/pattern:
+- Update `PATTERNS.md`
+
+When bug is fixed:
+- Update `LESSONS.md`
+
+When task completed:
+- Update `TASKS.md`
+
+Keep text short and clear.
+
+---
+
+## Maintenance Without Skill
+
+Run once per week (or two weeks):
+
+```bash
+python contextkit.py maintain
+```
+
+Good commit message:
 
 ```text
-chore(memory): rotate .ai files and archive old entries
-```
-
-You can do the same with the tool:
-
-```bash
-python ai_memory_tool.py maintain
+chore(memory): maintain .ai files
 ```
 
 ---
 
-## Optional Skill Automation
+## Add To Agent Instructions
 
-If you later want automation, add a maintenance skill.  
-The system works without it, but automation helps as the project grows.
-
----
-
-## Agent Integration
-
-Add this to your project instructions (`AGENTS.md`, `.cursorrules`, etc):
+Put this in `AGENTS.md` or tool rule file:
 
 ```markdown
 Read `.ai/CONTEXT.md` at session start.
-Review `.ai/DECISIONS.md` before architectural changes.
-Follow `.ai/PATTERNS.md` for code style.
-Check `.ai/LESSONS.md` for related past issues.
-Update `.ai/TASKS.md` when work is completed.
+Check `.ai/DECISIONS.md` before architecture changes.
+Follow `.ai/PATTERNS.md` for conventions.
+Look at `.ai/LESSONS.md` for similar past issues.
+Update `.ai/TASKS.md` after finishing work.
+```
+
+If your platform supports custom skill command, map skill actions:
+
+```text
+/contextkit status   -> python contextkit.py skill status
+/contextkit init     -> python contextkit.py skill init
+/contextkit maintain -> python contextkit.py skill maintain
+/contextkit all      -> python contextkit.py skill all
 ```
 
 ---
 
-## Minimal Directory Layout
+## Skill Setup Examples (Qwen, Claude, Others)
+
+Use this section if you want one command like `/contextkit all`.
+
+### Qwen Code CLI
+
+If your Qwen setup supports local skills folder, create a skill file in:
+- `~/.qwen/skills/contextkit/SKILL.md`
+
+Example `SKILL.md`:
+
+```markdown
+---
+name: contextkit
+description: Manage .ai memory files in project
+---
+
+## Commands
+- `/contextkit status` -> `python contextkit.py skill status`
+- `/contextkit init` -> `python contextkit.py skill init`
+- `/contextkit maintain` -> `python contextkit.py skill maintain`
+- `/contextkit all` -> `python contextkit.py skill all`
+```
+
+After adding skill, restart Qwen CLI and test:
+
+```text
+/contextkit status
+```
+
+### Claude CLI
+
+If Claude CLI does not have native skill registry in your environment, use command aliases.
+PowerShell example:
+
+```powershell
+function contextkit { python contextkit.py skill $args }
+```
+
+Then use:
+
+```powershell
+contextkit status
+contextkit all
+```
+
+### Generic CLI (Codex CLI, Cursor terminal, others)
+
+Create one wrapper script in project root:
+
+```bash
+python contextkit.py skill all
+```
+
+Or create shell aliases:
+
+```bash
+alias contextkit='python contextkit.py skill'
+contextkit status
+contextkit maintain
+```
+
+Note:
+- Exact skill registration can differ by CLI version.
+- If slash-command registration is different in your setup, keep command target same:
+  `python contextkit.py skill <action>`
+
+---
+
+## Folder Layout
 
 ```plain
 .ai/
@@ -176,15 +276,17 @@ Update `.ai/TASKS.md` when work is completed.
 
 ## Troubleshooting
 
-| Problem | Fix |
+| Problem | Solution |
 | :--- | :--- |
-| AI ignores `.ai/` | Add explicit instruction in `AGENTS.md` / tool rules |
-| `.ai` grows too fast | Archive weekly and keep active files short |
-| Team merge conflicts | Keep one section per entry and merge by section |
-| Existing `.ai` format differs | Map old sections into the 5 core files gradually |
+| AI does not read `.ai/` | Add explicit instruction in `AGENTS.md` |
+| Files become too big | Run `python contextkit.py maintain` |
+| Team has merge conflict | Keep one entry per section, merge carefully |
+| Existing format is different | Migrate gradually, no need big-bang rewrite |
 
 ---
 
 ## License
 
 MIT
+
+
