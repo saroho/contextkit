@@ -1,21 +1,31 @@
-# AI Memory System
+# ContextKit
 .ai/archive/bundles/*.tar.gz
 .ai/*.tmp
 .ai/secrets.md
 .ai/local/
 
-#python cache
+# Python
 __pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
 
-# IDE files
+# IDE
 .vscode/
 .idea/
 .cursor/
 .qwen/
 .lingma/
 
-# Python package build artifacts
+# Build
 *.egg-info/
-*.egg-info
 dist/
 build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python Cache
+.pytest_cache/
+

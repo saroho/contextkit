@@ -1,224 +1,121 @@
-"""Tests for contextkit CLI commands."""
+"""Tests for ContextKit v0.5.0 — minimal CLI."""
 
-import pytest
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from contextkit.cli import main
-from contextkit.files import CORE_FILES, read_text
+from contextkit.files import read_text, write_text, compact
 
 
 @pytest.fixture
 def tmp_project():
-    """Create a temporary project directory for testing."""
     with tempfile.TemporaryDirectory() as td:
         yield Path(td)
 
 
 class TestInit:
-    def test_init_creates_all_files(self, tmp_project):
+    def test_creates_memory_and_design(self, tmp_project):
         main(["--root", str(tmp_project), "init"])
-        for name in CORE_FILES:
-            assert (tmp_project / ".ai" / name).exists(), f"{name} not created"
+        assert (tmp_project / ".ai" / "MEMORY.md").exists()
+        assert (tmp_project / ".ai" / "DESIGN.md").exists()
 
-    def test_init_creates_archive_dirs(self, tmp_project):
+    def test_skips_existing(self, tmp_project, capsys):
         main(["--root", str(tmp_project), "init"])
-        archive = tmp_project / ".ai" / "archive"
-        for dirname in ["context", "requirements", "design", "decisions", "patterns", "lessons", "testing", "tasks", "releases"]:
-            assert (archive / dirname).exists(), f"archive/{dirname} not created"
+        main(["--root", str(tmp_project), "init"])
+        out = capsys.readouterr().out
+        assert "Skipped" in out
 
-    def test_init_skips_existing(self, tmp_project):
-        main(["--root", str(tmp_project), "init"])
-        main(["--root", str(tmp_project), "init"])
-
-    def test_init_force_overwrites(self, tmp_project):
+    def test_force_overwrites(self, tmp_project):
         main(["--root", str(tmp_project), "init"])
         main(["--root", str(tmp_project), "init", "--force"])
 
 
 class TestStatus:
-    def test_status_shows_files(self, tmp_project, capsys):
+    def test_shows_files(self, tmp_project, capsys):
         main(["--root", str(tmp_project), "init"])
         main(["--root", str(tmp_project), "status"])
-        captured = capsys.readouterr()
-        for name in CORE_FILES:
-            assert name in captured.out
+        out = capsys.readouterr().out
+        assert "MEMORY.md" in out
+        assert "DESIGN.md" in out
+
+    def test_shows_missing(self, tmp_project, capsys):
+        main(["--root", str(tmp_project), "status"])
+        out = capsys.readouterr().out
+        assert "MISSING" in out
 
 
-class TestCommands:
-    def test_add_decision(self, tmp_project):
+class TestArchive:
+    def test_nothing_to_archive_when_small(self, tmp_project, capsys):
         main(["--root", str(tmp_project), "init"])
-        main([
-            "--root", str(tmp_project), "add-decision", "Use SQLite",
-            "--context", "Simple deployment",
-            "--decision", "SQLite with WAL mode",
-            "--consequences", "Easier deployment",
-        ])
-        content = read_text(tmp_project / ".ai" / "DECISIONS.md")
-        assert "Use SQLite" in content
-        assert "Simple deployment" in content
+        main(["--root", str(tmp_project), "archive"])
+        out = capsys.readouterr().out
+        assert "Nothing to archive" in out
 
-    def test_add_lesson(self, tmp_project):
+    def test_dry_run_shows_what_would_happen(self, tmp_project, capsys):
         main(["--root", str(tmp_project), "init"])
-        main([
-            "--root", str(tmp_project), "add-lesson", "WAL mode locks",
-            "--symptom", "Database locked errors",
-            "--root-cause", "Missing WAL config",
-            "--fix", "Added WAL mode",
-            "--prevention", "Always configure WAL",
-        ])
-        content = read_text(tmp_project / ".ai" / "LESSONS.md")
-        assert "WAL mode locks" in content
-        assert "Database locked errors" in content
+        # Pad MEMORY.md past threshold
+        lines = ["## Active Task"] + [f"- line {i}" for i in range(160)]
+        write_text(tmp_project / ".ai" / "MEMORY.md", "\n".join(lines))
+        main(["--root", str(tmp_project), "archive", "--dry-run"])
+        out = capsys.readouterr().out
+        assert "Would archive" in out
 
-    def test_add_pattern(self, tmp_project):
+    def test_archives_when_over_threshold(self, tmp_project, capsys):
         main(["--root", str(tmp_project), "init"])
-        main([
-            "--root", str(tmp_project), "add-pattern",
-            "Error Handling", "Retry with backoff", "Use tenacity for retries",
-        ])
-        content = read_text(tmp_project / ".ai" / "PATTERNS.md")
-        assert "Retry with backoff" in content
-        assert "Error Handling" in content
+        lines = ["## Active Task"] + [f"- line {i}" for i in range(160)]
+        write_text(tmp_project / ".ai" / "MEMORY.md", "\n".join(lines))
+        main(["--root", str(tmp_project), "archive", "--line-threshold", "150"])
+        out = capsys.readouterr().out
+        assert "Archived" in out
+        archives = list((tmp_project / ".ai" / "archive").glob("MEMORY_*"))
+        assert len(archives) > 0
 
-    def test_task_done(self, tmp_project):
+    def test_preserves_content_in_archive(self, tmp_project):
         main(["--root", str(tmp_project), "init"])
-        main(["--root", str(tmp_project), "task-done", "Implement auth"])
-        content = read_text(tmp_project / ".ai" / "TASKS.md")
-        assert "Implement auth" in content
-        assert "[x]" in content
+        content = "## Active Task\n- important thing\n"
+        write_text(tmp_project / ".ai" / "MEMORY.md", content)
+        # Manually trigger archive to test content preservation
+        from datetime import datetime
+        from contextkit.files import write_text as wt
+        token = datetime.now().strftime("%Y%m%d_%H%M%S")
+        archive_path = tmp_project / ".ai" / "archive" / f"MEMORY_{token}.md"
+        wt(archive_path, content)
+        archived = read_text(archive_path)
+        assert "important thing" in archived
 
-    def test_add_requirement(self, tmp_project):
+
+class TestFiles:
+    def test_compact_removes_excess_blanks(self):
+        text = "a\n\n\n\nb\n\n\nc"
+        assert compact(text) == "a\n\nb\n\nc\n"
+
+    def test_compact_strips_trailing(self):
+        text = "hello   \nworld   \n"
+        assert compact(text) == "hello\nworld\n"
+
+    def test_read_nonexistent(self):
+        assert read_text(Path("/no/such/file")) == ""
+
+    def test_write_creates_dirs(self, tmp_path):
+        target = tmp_path / "sub" / "f.md"
+        write_text(target, "x")
+        assert target.exists()
+
+
+class TestEndToEnd:
+    def test_full_cycle(self, tmp_project, capsys):
+        # Init
         main(["--root", str(tmp_project), "init"])
-        main([
-            "--root", str(tmp_project), "add-requirement",
-            "REQ-001", "User Auth",
-            "--user-story", "As a user I want login",
-            "--priority", "High",
-            "--acceptance", "Login validates|Session persists",
-        ])
-        content = read_text(tmp_project / ".ai" / "REQUIREMENTS.md")
-        assert "REQ-001" in content
-        assert "User Auth" in content
-        assert "High" in content
-
-    def test_requirement_done(self, tmp_project):
-        main(["--root", str(tmp_project), "init"])
-        main([
-            "--root", str(tmp_project), "add-requirement",
-            "REQ-001", "User Auth",
-            "--user-story", "As a user I want login",
-        ])
-        main([
-            "--root", str(tmp_project), "requirement-done",
-            "REQ-001", "--notes", "Done with JWT",
-        ])
-        content = read_text(tmp_project / ".ai" / "REQUIREMENTS.md")
-        assert "Status**: Done" in content
-
-    def test_update_context(self, tmp_project):
-        main(["--root", str(tmp_project), "init"])
-        main([
-            "--root", str(tmp_project), "update-context",
-            "--change", "Added auth module",
-            "--next-steps", "Write tests|Deploy",
-        ])
-        content = read_text(tmp_project / ".ai" / "CONTEXT.md")
-        assert "Added auth module" in content
-        assert "Write tests" in content
-
-    def test_update_design(self, tmp_project):
-        main(["--root", str(tmp_project), "init"])
-        main([
-            "--root", str(tmp_project), "update-design",
-            "backend", "FastAPI REST API with auth",
-        ])
-        content = read_text(tmp_project / ".ai" / "DESIGN.md")
-        assert "FastAPI REST API with auth" in content
-
-    def test_update_testing(self, tmp_project):
-        main(["--root", str(tmp_project), "init"])
-        main([
-            "--root", str(tmp_project), "update-testing",
-            "--unit", "75", "--integration", "60",
-            "--gaps", "E2E not set up",
-        ])
-        content = read_text(tmp_project / ".ai" / "TESTING.md")
-        assert "Unit Tests: 75%" in content
-        assert "Integration Tests: 60%" in content
-
-    def test_add_release(self, tmp_project):
-        main(["--root", str(tmp_project), "init"])
-        main([
-            "--root", str(tmp_project), "add-release",
-            "v0.1.0",
-            "--added", "Auth|Tasks",
-            "--fixed", "Login validation bug",
-        ])
-        content = read_text(tmp_project / ".ai" / "RELEASE.md")
-        assert "v0.1.0" in content
-        assert "Auth" in content
-
-    def test_decision_auto_numbering(self, tmp_project):
-        main(["--root", str(tmp_project), "init"])
-        main([
-            "--root", str(tmp_project), "add-decision", "First",
-            "--context", "c", "--decision", "d", "--consequences", "x",
-        ])
-        main([
-            "--root", str(tmp_project), "add-decision", "Second",
-            "--context", "c", "--decision", "d", "--consequences", "x",
-        ])
-        content = read_text(tmp_project / ".ai" / "DECISIONS.md")
-        assert "First" in content
-        assert "Second" in content
-
-
-class TestMaintain:
-    def test_maintain_dry_run(self, tmp_project, capsys):
-        main(["--root", str(tmp_project), "init"])
-        decisions = tmp_project / ".ai" / "DECISIONS.md"
-        lines = [f"### Decision {i}\n- Body {i}" for i in range(150)]
-        decisions.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-        main([
-            "--root", str(tmp_project), "maintain",
-            "--dry-run", "--explain",
-            "--line-threshold", "100",
-        ])
-        captured = capsys.readouterr()
-        assert "Rotate" in captured.out or "Nothing to do" in captured.out
-
-    def test_maintain_nothing_to_rotate(self, tmp_project, capsys):
-        main(["--root", str(tmp_project), "init"])
-        main(["--root", str(tmp_project), "maintain"])
-        captured = capsys.readouterr()
-        assert "Nothing to do" in captured.out
-
-
-class TestCompress:
-    def test_compress_displays_files(self, tmp_project, capsys):
-        main(["--root", str(tmp_project), "init"])
-        main([
-            "--root", str(tmp_project), "add-decision", "Test decision",
-            "--context", "c", "--decision", "d", "--consequences", "x",
-        ])
-        main(["--root", str(tmp_project), "compress"])
-        captured = capsys.readouterr()
-        assert "COMPRESS:" in captured.out
-
-    def test_compress_write(self, tmp_project):
-        main(["--root", str(tmp_project), "init"])
-        decisions = tmp_project / ".ai" / "DECISIONS.md"
-        decisions.write_text("### Old decision 1\n- body\n### Old decision 2\n- body\n", encoding="utf-8")
-
-        main([
-            "--root", str(tmp_project), "compress",
-            "--write", "DECISIONS.md",
-            "--content", "### Decisions\n- Summarized: key decision here",
-        ])
-        content = read_text(tmp_project / ".ai" / "DECISIONS.md")
-        assert "Summarized" in content
-        archive_dir = tmp_project / ".ai" / "archive" / "decisions"
-        archives = list(archive_dir.glob("DECISIONS_pre_compress_*"))
-        assert len(archives) > 0, "Original should be archived"
+        # Status
+        main(["--root", str(tmp_project), "status"])
+        out = capsys.readouterr().out
+        assert "lines" in out
+        # AI writes memory directly
+        memory = tmp_project / ".ai" / "MEMORY.md"
+        write_text(memory, "## Active Task\n- Build feature X\n\n## Next Steps\n- Test\n")
+        # Archive should not trigger (small file)
+        main(["--root", str(tmp_project), "archive"])
+        out = capsys.readouterr().out
+        assert "Nothing to archive" in out

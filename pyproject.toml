@@ -1,12 +1,12 @@
 [project]
 name = "contextkit"
-version = "0.4.0"
-description = "Full SDLC memory system for AI coding agents."
+version = "0.5.0"
+description = "Minimal project memory for AI coding agents."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = { file = "LICENSE" }
 authors = [{ name = "ContextKit contributors" }]
-keywords = ["ai", "cli", "memory", "qwen"]
+keywords = ["ai", "cli", "memory"]
 
 [project.scripts]
 contextkit = "contextkit:cli"
@@ -14,3 +14,6 @@ contextkit = "contextkit:cli"
 [tool.black]
 line-length = 100
 target-version = ["py310"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

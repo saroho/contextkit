@@ -1,9 +1,10 @@
-"""ContextKit - Full SDLC memory system for AI coding agents."""
+"""ContextKit — minimal project memory for AI coding agents."""
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 
 def cli() -> None:
-    """Entry point for the contextkit CLI command."""
+    """Entry point: contextkit."""
     from .cli import cli as _cli
+
     _cli()
