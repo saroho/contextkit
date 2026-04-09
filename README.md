@@ -53,7 +53,16 @@ Create `.ai/DESIGN.md` only if needed:
 
 ## For Your Project
 
-Add to your `QWEN.md`:
+### Works with Claude Code, Gemini CLI, and Cursor
+
+This convention is **just markdown files in your repo**, so you can use it with any AI coding tool that can read project instructions and edit files.
+
+Add the following snippet to your tool’s project instruction file:
+
+- **Claude Code CLI**: `CLAUDE.md` (repo root)
+- **Qwen**: `QWEN.md` (repo root)
+- **Cursor**: `.cursor/rules/ai-memory.md` (recommended) or your existing Cursor rules/instructions file
+- **Gemini CLI**: your Gemini CLI project instruction file (use whatever file your setup already loads for repo-level guidance; if you don’t have one yet, create a repo-root instruction file and point Gemini CLI at it)
 
 ```markdown
 ## Memory
