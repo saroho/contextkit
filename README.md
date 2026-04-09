@@ -1,102 +1,76 @@
-# ContextKit
+# AI Memory Convention
 
-**Minimal project memory for AI coding agents.**
+## Problem
 
-Two files. Three commands. Zero friction.
+AI coding agents forget everything between sessions.
 
-## The Problem
+## Solution
 
-Every AI coding session starts amnesiac. The agent forgets everything between sessions.
+One file. Optionally two.
 
-## The Solution
-
-`.ai/MEMORY.md` — a single file the AI reads at session start and updates after each task.
-
-The tool only handles file creation and archival. The AI writes the memory itself.
-
-## Install
-
-```bash
-pipx install .
+```
+.ai/MEMORY.md      ← always
+.ai/DESIGN.md      ← only if architecture is non-trivial
+.ai/archive/       ← historical snapshots
 ```
 
-## Quick Start
+## Setup
 
-```bash
-# Create .ai/ directory with clean MEMORY.md and DESIGN.md
-contextkit init
+Create `.ai/MEMORY.md`:
 
-# Check file sizes
-contextkit status
+```markdown
+## Active Task
 
-# Archive files that have grown (default: 150 lines)
-contextkit archive
+## Current Context
+
+## Key Decisions
+
+## Code Patterns
+
+## Gotchas & Lessons
+
+## Next Steps
+```
+
+Create `.ai/DESIGN.md` only if needed:
+
+```markdown
+## Architecture
 ```
 
 ## How It Works
 
-### Session Start
-AI reads `.ai/MEMORY.md` (should be <150 lines) to understand:
-- What's being worked on
-- Key decisions made
-- Code patterns to follow
-- Gotchas to avoid
-- Next steps
+1. **Session start** — Read `.ai/MEMORY.md` (and `.ai/DESIGN.md` if it exists)
+2. **During work** — Update after meaningful changes
+3. **Session end** — Keep under ~150 lines
 
-### During Session
-AI writes directly to `.ai/MEMORY.md` after meaningful changes.
-No CLI commands needed. No friction.
+### When It Grows Too Large
 
-### Session End
-AI compresses MEMORY.md to keep it under ~150 lines.
-Old content can be archived with `contextkit archive`.
+1. Copy full `.ai/MEMORY.md` → `.ai/archive/MEMORY_YYYY-MM-DD.md`
+2. Compress `.ai/MEMORY.md` down to ~80 lines
+3. Keep: active task, key decisions, current gotchas
+4. Drop: completed tasks, obsolete context
 
-### When Files Grow Too Large
-```bash
-contextkit archive          # Save overflow to .ai/archive/
-contextkit archive --dry-run  # Preview what would happen
-```
+## For Your Project
 
-## Files
-
-| File | Purpose |
-|------|---------|
-| `.ai/MEMORY.md` | Active project memory (read at session start) |
-| `.ai/DESIGN.md` | Architecture notes (only if non-trivial) |
-| `.ai/archive/` | Full history, never deleted |
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `contextkit init` | Create `.ai/MEMORY.md` and `.ai/DESIGN.md` |
-| `contextkit status` | Show file sizes |
-| `contextkit archive` | Archive files exceeding 150 lines |
-
-## For Project Setup
-
-Add to your project's `QWEN.md` or `CLAUDE.md`:
+Add to your `QWEN.md`:
 
 ```markdown
 ## Memory
+
 Read `.ai/MEMORY.md` at session start.
-Update it after meaningful changes.
-Keep it under ~150 lines.
-Run `contextkit archive` if it grows too large.
+Read `.ai/DESIGN.md` if it exists.
+Update after meaningful changes.
+Keep under ~150 lines.
+
+### When MEMORY.md approaches 150 lines:
+1. Copy full content to `.ai/archive/MEMORY_YYYY-MM-DD.md`
+2. Compress `.ai/MEMORY.md` to ~80 lines
+3. Keep: active task, key decisions, current gotchas
+4. Drop: completed tasks, obsolete context
 ```
 
-## Code Structure
+## No Tool Required
 
-```
-contextkit/
-├── __init__.py   # Package + entry point
-├── __main__.py   # python -m support
-├── cli.py        # init, status, archive
-└── files.py      # I/O, templates, compact
-tests/
-└── test_cli.py   # 14 tests
-```
-
-## License
-
-MIT
+The AI reads and writes markdown files natively.
+No CLI, no package, no friction. Just files and a convention.

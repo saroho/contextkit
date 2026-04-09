@@ -1,31 +1,10 @@
-# ContextKit
-.ai/archive/bundles/*.tar.gz
-.ai/*.tmp
-.ai/secrets.md
-.ai/local/
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-.pytest_cache/
-
-# IDE
+# IDE / agent config
 .vscode/
 .idea/
 .cursor/
 .qwen/
 .lingma/
 
-# Build
-*.egg-info/
-dist/
-build/
-
 # OS
 .DS_Store
 Thumbs.db
-
-# Python Cache
-.pytest_cache/
-
