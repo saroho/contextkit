@@ -1,4 +1,4 @@
-# AI Memory Convention
+# Context Kit
 
 ## Problem
 
