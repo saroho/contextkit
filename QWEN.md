@@ -42,7 +42,7 @@ When you make meaningful code changes, architectural decisions, or finish a task
 | **Testing** | `contextkit update-testing --unit N --integration N --gaps "Known gaps" --benchmarks "Metric: value"` |
 | **Release** | `contextkit add-release v0.1.0 --added "F1\|F2" --fixed "Bug" --deployment "Env: Status"` |
 
-**2. Compress context**: `contextkit summarize` (compresses all .ai files → LLM summary for CONTEXT.md)
+**2. End of session**: `contextkit compress` (AI reads each file, writes compressed version, originals auto-archived)
 
 **3. Verify**:
    - Read the tail of the updated `.ai/*.md` file to confirm it looks correct

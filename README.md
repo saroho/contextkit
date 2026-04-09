@@ -3,25 +3,10 @@
 **Full SDLC memory system for AI coding agents.**
 
 Persist project context across AI sessions using a hybrid approach:
-- **LLM summarization** - Compresses decisions, patterns, lessons, tasks, and SDLC artifacts into concise CONTEXT.md
-- **Python archiving** - Deterministic rotation of large files with full history preservation
+- **LLM compression** — Per-file summarization keeps active files small and dense
+- **Python archiving** — Deterministic rotation with full history preservation
 
-Covers: Requirements → Design → Development → Testing → Release → Operations
-
-## What You Get
-
-| File | SDLC Phase | Purpose |
-|------|------------|---------|
-| **CONTEXT.md** | All | LLM-compressed snapshot of current project state |
-| **REQUIREMENTS.md** | Planning | Features, user stories, acceptance criteria |
-| **DESIGN.md** | Design | System architecture, frontend/backend components, UI/UX patterns, API contracts |
-| **DECISIONS.md** | Design | Architecture decisions with rationale |
-| **PATTERNS.md** | Development | Code patterns and conventions |
-| **LESSONS.md** | Development | Critical lessons from past mistakes |
-| **TESTING.md** | Testing | Test coverage, gaps, performance benchmarks |
-| **TASKS.md** | Development | Active and recently completed tasks |
-| **RELEASE.md** | Release | Release history and deployment notes |
-| **`.ai/archive/`** | All | Full searchable history |
+Covers: Requirements → Design → Development → Testing → Release
 
 ## Install
 
@@ -53,45 +38,33 @@ contextkit init
 ### 2. Plan: Requirements
 
 ```bash
-# Add a requirement with user story and acceptance criteria
 contextkit add-requirement REQ-001 "User Authentication" \
   --user-story "As a user, I want to log in so that I can access my data" \
   --priority High \
   --acceptance "Login form validates credentials|Session persists across refresh|Logout clears session"
 
-# Mark requirement as done when implemented
 contextkit requirement-done REQ-001 --notes "Implemented with JWT"
 ```
 
 ### 3. Design: Architecture & UI/UX
 
 ```bash
-# Update backend design
 contextkit update-design backend "REST API with FastAPI. Components: auth, users, tasks."
-
-# Update frontend/UI design
 contextkit update-design frontend "React components: LoginForm, Dashboard. State: React context."
-
-# Update UI/UX patterns
-contextkit update-design ui-patterns "Data tables: sortable, filterable, paginated. Forms: validated, accessible."
-
-# Update API contracts
-contextkit update-design api "POST /api/auth/login {email, password} → 200 {token}"
+contextkit update-design ui-patterns "Data tables: sortable, filterable, paginated."
+contextkit update-design api "POST /api/auth/login {email, password} -> 200 {token}"
 ```
 
 ### 4. Record Decisions, Patterns, Lessons
 
 ```bash
-# Architecture decision
 contextkit add-decision "Use SQLite" \
   --context "Simple deployment" \
   --decision "SQLite with WAL mode" \
   --consequences "Easier deployment, limited concurrency"
 
-# Code pattern
 contextkit add-pattern "Error Handling" "Retry with backoff" "Use tenacity for retries"
 
-# Lesson learned
 contextkit add-lesson "WAL mode locks" \
   --symptom "Database locked errors" \
   --root-cause "Missing WAL config" \
@@ -102,10 +75,8 @@ contextkit add-lesson "WAL mode locks" \
 ### 5. Track Tasks & Testing
 
 ```bash
-# Mark task done
 contextkit task-done "Implement JWT authentication"
 
-# Update test coverage
 contextkit update-testing \
   --unit 75 --integration 60 --e2e 0 \
   --gaps "E2E not set up|Need UI component tests" \
@@ -115,7 +86,6 @@ contextkit update-testing \
 ### 6. Release
 
 ```bash
-# Add release notes
 contextkit add-release v0.1.0 \
   --added "User authentication|Task management" \
   --changed "Refactored auth module" \
@@ -123,17 +93,17 @@ contextkit add-release v0.1.0 \
   --deployment "Production: Deployed|Staging: Verified"
 ```
 
-### 7. Summarize with AI
+### 7. Compress Context (End of Session)
 
-Compress all `.ai/` files into a concise CONTEXT.md:
+Compress all accumulating `.ai/` files into concise versions:
 
 ```bash
-contextkit summarize
+contextkit compress
 ```
 
-This displays all active `.ai/` files. The AI tool then summarizes them and updates CONTEXT.md.
+This displays each file with targeted compression instructions. The AI reads the output, writes compressed versions, and originals are auto-archived.
 
-**No API keys needed** - uses your existing AI session.
+**No API keys needed** — uses your existing AI session.
 
 ### 8. Maintain & Archive
 
@@ -151,7 +121,7 @@ contextkit maintain --dry-run --explain
 
 1. **Session start** → AI reads all `.ai/*.md` files (especially CONTEXT.md)
 2. **During work** → AI uses update commands after meaningful changes
-3. **Session end** → Run `contextkit summarize` to compress context
+3. **Session end** → Run `contextkit compress` to compress all files with AI help
 4. **Periodically** → Run `contextkit maintain` to archive large files
 
 ### Qwen Code Integration
@@ -168,8 +138,8 @@ When you make meaningful code changes, architectural decisions, or finish a task
    - `contextkit update-design` / `add-decision` / `add-pattern`
    - `contextkit add-lesson` / `update-context` / `task-done`
    - `contextkit update-testing` / `add-release`
-2. Run `contextkit summarize` periodically to compress context with LLM
-3. Run `contextkit maintain` to rotate large files and archive old content
+2. Run `contextkit compress` at end of session to compress all files with AI
+3. Run `contextkit maintain` periodically to archive large files
 
 ### Session Start
 Read ALL `.ai/*.md` files at session start to understand current project state.
@@ -189,7 +159,7 @@ Full history is preserved in `.ai/archive/` for deep context when needed.
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `add-requirement` | Add feature requirement | `contextkit add-requirement REQ-001 "Auth" --user-story "..." --priority High --acceptance "Criterion 1\|Criterion 2"` |
+| `add-requirement` | Add feature requirement | `contextkit add-requirement REQ-001 "Auth" --user-story "..." --priority High --acceptance "c1\|c2"` |
 | `requirement-done` | Mark requirement done | `contextkit requirement-done REQ-001 --notes "Implemented with JWT"` |
 
 ### Design
@@ -222,11 +192,12 @@ Design sections: `architecture`, `backend`, `frontend`, `ui-patterns`, `data-mod
 |---------|-------------|---------|
 | `add-release` | Add release notes | `contextkit add-release v0.1.0 --added "Feature 1\|Feature 2" --fixed "Bug fix"` |
 
-### LLM Summarization
+### Compression (LLM-driven)
 
 | Command | Description |
 |---------|-------------|
-| `summarize` | Display all `.ai/` files for AI to compress into CONTEXT.md |
+| `compress` | Display all accumulating files for AI to compress into concise versions |
+| `compress --write FILE --content "..."` | Write compressed content for a specific file (auto-archives original) |
 
 ### Maintenance
 
@@ -236,11 +207,11 @@ Design sections: `architecture`, `backend`, `frontend`, `ui-patterns`, `data-mod
 | `all` | Run init + maintain |
 
 **Maintain options:**
-- `--line-threshold N` - Rotate files with >N lines (default: 100)
-- `--keep-last N` - Keep last N lines when rotating (default: 60)
-- `--task-days N` - Archive tasks older than N days (default: 30)
-- `--dry-run` - Preview without making changes
-- `--explain` - Show what would be done and why
+- `--line-threshold N` — Rotate files with >N lines (default: 100)
+- `--keep-last N` — Keep last N lines when rotating (default: 60)
+- `--task-days N` — Archive tasks older than N days (default: 30)
+- `--dry-run` — Preview without making changes
+- `--explain` — Show what would be done and why
 
 ## Architecture
 
@@ -271,6 +242,21 @@ Design sections: `architecture`, `backend`, `frontend`, `ui-patterns`, `data-mod
 **Hybrid approach:**
 - **LLM** for intelligent compression (summarization)
 - **Python** for deterministic operations (rotation, archival)
+
+## Code Structure
+
+```
+contextkit/
+├── __init__.py     # Package entry point
+├── cli.py          # Argument parsing, command dispatch
+├── commands.py     # SDLC command implementations
+├── compress.py     # LLM-driven per-file compression protocol
+├── maintain.py     # Archive rotation logic
+└── files.py        # File I/O, templates, markdown helpers
+tests/
+├── test_cli.py     # CLI command tests
+└── test_files.py   # File utility tests
+```
 
 ## Remove
 
