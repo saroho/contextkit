@@ -24,7 +24,7 @@ CORE_FILES = [
     "RELEASE.md",
 ]
 
-ARCHIVE_DIRS = ["context", "requirements", "design", "decisions", "patterns", "lessons", "testing", "tasks", "plans", "releases"]
+ARCHIVE_DIRS = ["context", "requirements", "design", "decisions", "patterns", "lessons", "testing", "tasks", "releases"]
 
 FILE_TO_ARCHIVE = {
     "CONTEXT.md": "context",
